@@ -2,6 +2,7 @@
 
 import io
 from datetime import date
+from decimal import Decimal
 
 import pandas as pd
 from django import forms
@@ -52,7 +53,52 @@ class DashboardView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user: User = self.request.user
-        projects = projects_for_user(user)[:8]
+        projects = projects_for_user(user).prefetch_related("jobs__project__client")[:8]
+
+        cards = []
+        status_badges = {
+            Job.Status.COMPLETED: "bg-success",
+            Job.Status.SHIPPED: "bg-success",
+            Job.Status.READY_TO_BE_SHIPPED: "bg-primary",
+            Job.Status.IN_QUALITY_CONTROL: "bg-primary",
+            Job.Status.IN_FABRICATION: "bg-warning",
+            Job.Status.APPROVED_PENDING_FABRICATION: "bg-warning",
+            Job.Status.PENDING_CLIENT_APPROVAL: "bg-info",
+            Job.Status.DRAWINGS_WIP: "bg-info",
+            Job.Status.REQUIREMENTS_ANALYSIS: "bg-secondary",
+            Job.Status.PENDING_REQUIREMENTS: "bg-secondary",
+        }
+
+        for project in projects:
+            job_qs = list(
+                project.jobs.select_related("project", "project__client").order_by(
+                    "reference"
+                )
+            )
+            forecast_total = sum(
+                (job.forecast_revenue for job in job_qs), Decimal("0")
+            )
+            actual_total = sum((job.actual_revenue for job in job_qs), Decimal("0"))
+            cards.append(
+                {
+                    "project": project,
+                    "client": project.client,
+                    "forecast_total": forecast_total,
+                    "actual_total": actual_total,
+                    "jobs": [
+                        {
+                            "reference": job.reference,
+                            "title": job.title,
+                            "status_display": job.get_status_display(),
+                            "status_class": status_badges.get(
+                                job.status, "bg-secondary"
+                            ),
+                        }
+                        for job in job_qs
+                    ],
+                }
+            )
+
         jobs = (
             jobs_for_user(user)
             .filter(actual_completion__isnull=True)
@@ -67,8 +113,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
         context.update(
             {
-                "projects": projects,
-                "jobs": jobs,
+                "project_cards": cards,
+                "open_jobs": jobs,
                 "upcoming_milestones": upcoming_milestones,
             }
         )
