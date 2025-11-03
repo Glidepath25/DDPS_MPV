@@ -20,7 +20,24 @@ SECRET_KEY = env("SECRET_KEY", default="CHANGE_ME_DEV_SECRET")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG", default=True)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+_default_hosts = ["localhost", "127.0.0.1", ".ondigitalocean.app"]
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=_default_hosts)
+
+def _build_default_csrf_origins(hosts: list[str]) -> list[str]:
+    origins: list[str] = []
+    for host in hosts:
+        if host in {"localhost", "127.0.0.1"}:
+            origins.extend([f"http://{host}", f"http://{host}:8000"])
+            continue
+        if host.startswith("."):
+            origins.append(f"https://*{host}")
+        else:
+            origins.append(f"https://{host}")
+    return origins
+
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS", default=_build_default_csrf_origins(ALLOWED_HOSTS)
+)
 
 
 # Application definition
