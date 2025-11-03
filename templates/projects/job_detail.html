@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}{{ object.reference }} | DDPS{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="h3 mb-1">{{ object.reference }} - {{ object.title }}</h1>
+        <p class="text-muted mb-0">Project: <a href="{% url 'project-detail' object.project.pk %}">{{ object.project.reference }}</a></p>
+    </div>
+    <div class="text-end">
+        {% if can_edit_job %}
+        <button type="button" class="btn btn-outline-primary" id="job-edit-toggle">Edit job</button>
+        {% endif %}
+    </div>
+</div>
+
+{% if job_form_has_errors %}
+<div class="alert alert-danger">Please review the highlighted fields below.</div>
+{% endif %}
+
+<form method="post" id="job-detail-form" data-editing="{% if job_form_has_errors %}true{% else %}false{% endif %}">
+    {% csrf_token %}
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h2 class="h5 mb-3">Job details</h2>
+                    <div class="row g-3">
+                        <div class="col-md-6">{{ job_form.project|as_crispy_field }}</div>
+                        <div class="col-md-6">{{ job_form.reference|as_crispy_field }}</div>
+                        <div class="col-md-6">{{ job_form.title|as_crispy_field }}</div>
+                        <div class="col-md-6">{{ job_form.status|as_crispy_field }}</div>
+                        <div class="col-12">{{ job_form.notes|as_crispy_field }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 d-flex flex-column gap-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h6 text-uppercase text-muted mb-3">Team</h2>
+                    {{ job_form.owner|as_crispy_field }}
+                    {{ job_form.design_manager|as_crispy_field }}
+                    {{ job_form.client_contact|as_crispy_field }}
+                </div>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h6 text-uppercase text-muted mb-3">Schedule</h2>
+                    {{ job_form.anticipated_start|as_crispy_field }}
+                    {{ job_form.anticipated_completion|as_crispy_field }}
+                    {{ job_form.actual_completion|as_crispy_field }}
+                </div>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h6 text-uppercase text-muted mb-3">Financials</h2>
+                    {{ job_form.forecast_revenue|as_crispy_field }}
+                    {% if request.user.can_view_finance %}
+                    {{ job_form.actual_revenue|as_crispy_field }}
+                    {% else %}
+                    <p class="text-muted mb-0">Actual revenue hidden for your role.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if can_edit_job %}
+    <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="submit" class="btn btn-primary d-none" id="job-save-btn" name="job_update" value="1">Save changes</button>
+        <button type="button" class="btn btn-secondary d-none" id="job-cancel-btn">Cancel</button>
+    </div>
+    {% endif %}
+</form>
+
+{% if milestone_form_errors %}
+<div class="alert alert-danger mt-4">Please correct the milestone entries highlighted below.</div>
+{% endif %}
+<form method="post" class="card shadow-sm mt-4" id="milestone-form">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0">Milestones</h2>
+            {% if can_edit_job %}
+            <button type="submit" class="btn btn-primary" name="milestone_update" value="1">Update milestones</button>
+            {% endif %}
+        </div>
+        {% csrf_token %}
+        {{ milestone_formset.management_form }}
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Stage</th>
+                        <th scope="col">Planned date</th>
+                        <th scope="col">Actual date</th>
+                        <th scope="col">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in milestone_formset %}
+                    <tr>
+                        <td>{{ form.instance.get_stage_display }}</td>
+                        <td>{{ form.planned_date }}</td>
+                        <td>{{ form.actual_date }}</td>
+                        <td>{{ form.notes }}</td>
+                    </tr>
+                    {{ form.stage.as_hidden }}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+
+<div class="row g-3 mt-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Attachments</h2>
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Category</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">File</th>
+                                <th scope="col">Uploaded by</th>
+                                <th scope="col">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attachment in attachments %}
+                            <tr>
+                                <td>{{ attachment.get_category_display }}</td>
+                                <td>{{ attachment.description|default:'-' }}</td>
+                                <td><a href="{{ attachment.file.url }}" target="_blank" rel="noopener">{{ attachment.filename }}</a></td>
+                                <td>{% if attachment.uploaded_by %}{{ attachment.uploaded_by.get_full_name|default:attachment.uploaded_by.username }}{% else %}-{% endif %}</td>
+                                <td>{{ attachment.created_at|date:'Y-m-d H:i' }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">No attachments uploaded.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Upload attachment</h2>
+                {% if attachment_form_errors %}
+                <div class="alert alert-danger">Please correct the issues below.</div>
+                {% endif %}
+                {% if can_edit_job %}
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{ attachment_form|crispy }}
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary" name="add_attachment" value="1">Upload</button>
+                    </div>
+                </form>
+                {% else %}
+                <p class="text-muted mb-0">Attachment upload available to Sikla/internal users.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Add diary note</h2>
+                {% if note_form_errors %}
+                <div class="alert alert-danger">Please add a message before saving.</div>
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    {{ note_form|crispy }}
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" class="btn btn-primary" name="add_note" value="1">Save note</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Recent notes</h2>
+                <div class="list-group list-group-flush">
+                    {% for note in notes %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <strong>{% if note.author %}{{ note.author.get_full_name|default:note.author.username }}{% else %}Unknown{% endif %}</strong>
+                            <span class="text-muted small">{{ note.created_at|date:'Y-m-d H:i' }}</span>
+                        </div>
+                        <p class="mb-0 mt-2">{{ note.body|linebreaks }}</p>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-muted">No notes recorded yet.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mt-4">
+    <div class="card-body">
+        <h2 class="h5 mb-3">Audit trail</h2>
+        <div class="list-group list-group-flush">
+            {% for entry in audit_logs %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <strong>{{ entry.action|capfirst }}</strong>
+                    <span class="text-muted small">{{ entry.created_at|date:'Y-m-d H:i' }}</span>
+                </div>
+                <div class="small text-muted mb-1">
+                    {% if entry.actor %}By {{ entry.actor.get_full_name|default:entry.actor.username }}{% else %}By system{% endif %}
+                </div>
+                {% if entry.field_name %}<div class="mb-1"><span class="fw-semibold">Field:</span> {{ entry.field_name }}</div>{% endif %}
+                {% if entry.previous_value or entry.new_value %}
+                <div class="small"><span class="fw-semibold">From:</span> {{ entry.previous_value|default:'-' }}</div>
+                <div class="small"><span class="fw-semibold">To:</span> {{ entry.new_value|default:'-' }}</div>
+                {% endif %}
+                {% if entry.note %}
+                <div class="mt-2">{{ entry.note|linebreaks }}</div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="list-group-item text-muted">No audit activity recorded yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% if can_edit_job %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('job-detail-form');
+    if (!form) { return; }
+    const editBtn = document.getElementById('job-edit-toggle');
+    const saveBtn = document.getElementById('job-save-btn');
+    const cancelBtn = document.getElementById('job-cancel-btn');
+    const enableFields = () => {
+        form.querySelectorAll('input[disabled], select[disabled], textarea[disabled]').forEach(el => {
+            el.removeAttribute('disabled');
+        });
+        if (saveBtn) { saveBtn.classList.remove('d-none'); }
+        if (cancelBtn) { cancelBtn.classList.remove('d-none'); }
+        if (editBtn) { editBtn.classList.add('d-none'); }
+        form.dataset.editing = 'true';
+    };
+    if (editBtn) {
+        editBtn.addEventListener('click', enableFields);
+    }
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => window.location.reload());
+    }
+    if (form.dataset.editing === 'true') {
+        enableFields();
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

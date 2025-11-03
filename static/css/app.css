@@ -1,0 +1,12 @@
+body {
+    font-family: "Segoe UI", Roboto, sans-serif;
+}
+
+.card-title {
+    font-weight: 600;
+}
+
+.table thead th {
+    background-color: #0d6efd;
+    color: #fff;
+}

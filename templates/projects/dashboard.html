@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | DDPS{% endblock %}
+{% block content %}
+<h1 class='mb-4'>Project overview</h1>
+<div class='row g-3 mb-4'>
+    {% for project in projects %}
+    <div class='col-md-6 col-xl-4'>
+        <div class='card h-100 shadow-sm'>
+            <div class='card-body'>
+                <h2 class='card-title h5'><a href='{% url 'project-detail' project.pk %}'>{{ project.reference }} - {{ project.name }}</a></h2>
+                <p class='mb-1'><span class='fw-semibold'>Client:</span> {{ project.client.name }}</p>
+                <p class='mb-1'><span class='fw-semibold'>Status:</span> {{ project.get_status_display }}</p>
+                {% if project.start_date %}
+                <p class='mb-0 text-muted'>Started {{ project.start_date }}{% if project.end_date %}, ends {{ project.end_date }}{% endif %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class='col-12'>
+        <div class='alert alert-info'>No projects yet. <a href='{% url 'project-create' %}'>Create the first project.</a></div>
+    </div>
+    {% endfor %}
+</div>
+
+<h2 class='h4 mt-4 mb-3'>Active jobs</h2>
+<div class='table-responsive bg-white shadow-sm rounded'>
+    <table class='table table-hover align-middle mb-0'>
+        <thead>
+            <tr>
+                <th scope='col'>Project</th>
+                <th scope='col'>Job</th>
+                <th scope='col'>Status</th>
+                <th scope='col'>Owner</th>
+                <th scope='col'>Design Manager</th>
+                <th scope='col'>Client Contact</th>
+                <th scope='col'>Forecast &pound;</th>
+                <th scope='col'>Actual &pound;</th>
+                <th scope='col'></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in jobs %}
+            <tr>
+                <td>{{ job.project.reference }}</td>
+                <td>{{ job.reference }} - {{ job.title }}</td>
+                <td>{{ job.get_status_display }}</td>
+                <td>{% if job.owner %}{{ job.owner.get_full_name|default:job.owner.username }}{% else %}-{% endif %}</td>
+                <td>{% if job.design_manager %}{{ job.design_manager.get_full_name|default:job.design_manager.username }}{% else %}-{% endif %}</td>
+                <td>{% if job.client_contact %}{{ job.client_contact.get_full_name|default:job.client_contact.username }}{% else %}-{% endif %}</td>
+                <td>{{ job.forecast_revenue }}</td>
+                <td>{% if request.user.can_view_finance %}{{ job.actual_revenue }}{% else %}-{% endif %}</td>
+                <td><a class='btn btn-sm btn-outline-primary' href='{% url 'job-detail' job.pk %}'>View</a></td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan='9' class='text-center py-4 text-muted'>No jobs yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<h2 class='h4 mt-4 mb-3'>Upcoming milestones</h2>
+<div class='table-responsive bg-white shadow-sm rounded'>
+    <table class='table table-striped align-middle mb-0'>
+        <thead>
+            <tr>
+                <th scope='col'>Date</th>
+                <th scope='col'>Job</th>
+                <th scope='col'>Stage</th>
+                <th scope='col'>Client</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for milestone in upcoming_milestones %}
+            <tr>
+                <td>{{ milestone.planned_date }}</td>
+                <td><a href='{% url 'job-detail' milestone.job.pk %}'>{{ milestone.job.reference }} - {{ milestone.job.title }}</a></td>
+                <td>{{ milestone.get_stage_display }}</td>
+                <td>{{ milestone.job.project.client.name }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan='4' class='text-center py-4 text-muted'>No upcoming milestones.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
